@@ -1,8 +1,5 @@
 ---
 title: Email Triage OpenEnv
-emoji: "📬"
-colorFrom: blue
-colorTo: indigo
 sdk: docker
 app_port: 8000
 pinned: false
@@ -19,9 +16,24 @@ The agent reads an incoming email, understands the problem, assigns the right ca
 
 This is based on a task that people really do in support teams, billing teams, and security teams every day.
 
-## What We Built
+## Project Configuration
 
-We built a complete OpenEnv benchmark for **email triage**, a common business workflow.
+| Setting | Value |
+|---|---|
+| Environment name | `email_triage_env` |
+| Domain | Customer support email triage |
+| OpenEnv API | `reset()`, `step()`, `state()` |
+| Runtime | FastAPI + Docker |
+| Tasks | 3 |
+| Difficulty levels | easy, medium, hard |
+| Deployment target | Hugging Face Spaces |
+| Validation | `openenv validate` |
+| Baseline script | `inference.py` |
+| Container entrypoint | `python -m server.app` |
+
+## Project Description
+
+This project provides a complete OpenEnv benchmark for **email triage**, a common business workflow.
 
 In this environment, an AI agent must:
 
@@ -56,17 +68,6 @@ This environment measures practical skills such as:
 - handling urgency
 - writing clear customer replies
 - taking extra care in security-sensitive cases
-
-## Why This Submission Is Strong
-
-This project is designed to match the hackathon goals closely:
-
-- **Real-world utility**: email triage is a real workflow used by support, billing, and security teams
-- **Task quality**: the tasks move from easy to medium to hard and each one has a clear goal
-- **Deterministic grading**: each task has fixed expected outcomes and scores in the range `0.0` to `1.0`
-- **Reward shaping**: the agent gets partial credit for progress instead of only getting a final binary result
-- **Deployment-ready**: the project includes `openenv.yaml`, `Dockerfile`, `uv.lock`, and a root-level `inference.py`
-- **Practical benchmark value**: the environment checks classification, prioritization, routing, and safe response writing in one benchmark
 
 ## Environment Overview
 
