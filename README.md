@@ -57,6 +57,17 @@ This environment measures practical skills such as:
 - writing clear customer replies
 - taking extra care in security-sensitive cases
 
+## Why This Submission Is Strong
+
+This project is designed to match the hackathon goals closely:
+
+- **Real-world utility**: email triage is a real workflow used by support, billing, and security teams
+- **Task quality**: the tasks move from easy to medium to hard and each one has a clear goal
+- **Deterministic grading**: each task has fixed expected outcomes and scores in the range `0.0` to `1.0`
+- **Reward shaping**: the agent gets partial credit for progress instead of only getting a final binary result
+- **Deployment-ready**: the project includes `openenv.yaml`, `Dockerfile`, `uv.lock`, and a root-level `inference.py`
+- **Practical benchmark value**: the environment checks classification, prioritization, routing, and safe response writing in one benchmark
+
 ## Environment Overview
 
 Each episode gives the agent one incoming email.  
@@ -115,6 +126,12 @@ The benchmark includes 3 deterministic tasks:
    A suspicious vendor payment request. The agent should recognize it as a security incident, mark it urgent, and tell the customer not to pay before verification.
 
 These tasks move from easy to hard and test both classification and safe decision-making.
+
+Business impact of the tasks:
+
+- easy: blocked operational access before a shift
+- medium: refund and customer trust risk
+- hard: potential financial fraud and security escalation
 
 ## Reward Design
 

@@ -16,6 +16,8 @@ class EmailTask:
     expected_team: str
     required_reply_keywords: tuple[str, ...]
     guidance: str
+    business_impact: str
+    success_criteria: str
 
 
 TASKS: dict[str, EmailTask] = {
@@ -35,6 +37,8 @@ TASKS: dict[str, EmailTask] = {
         expected_team="it_support",
         required_reply_keywords=("reset", "verify", "access"),
         guidance="Restore account access quickly while asking the user to verify identity.",
+        business_impact="A clinician cannot access a patient portal before a time-sensitive shift.",
+        success_criteria="Route to IT, mark as high priority, and explain identity verification plus access restoration.",
     ),
     "billing_refund_medium": EmailTask(
         task_id="billing_refund_medium",
@@ -52,6 +56,8 @@ TASKS: dict[str, EmailTask] = {
         expected_team="billing_ops",
         required_reply_keywords=("duplicate", "refund", "timeline"),
         guidance="Acknowledge the duplicate charge and route to billing with a refund timeline.",
+        business_impact="A paying customer has been charged twice and expects a refund process update.",
+        success_criteria="Route to billing, confirm the duplicate charge issue, and give a refund follow-up timeline.",
     ),
     "invoice_fraud_hard": EmailTask(
         task_id="invoice_fraud_hard",
@@ -70,6 +76,8 @@ TASKS: dict[str, EmailTask] = {
         expected_team="security_ops",
         required_reply_keywords=("do not pay", "verify", "security"),
         guidance="Treat this as potential invoice fraud and escalate immediately.",
+        business_impact="A company may send money to a fraudulent bank account if the case is mishandled.",
+        success_criteria="Escalate to security, mark urgent, and clearly instruct the customer not to pay before verification.",
     ),
 }
 

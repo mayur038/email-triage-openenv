@@ -97,7 +97,11 @@ class EmailTriageEnvironment(Environment[EmailTriageAction, EmailTriageObservati
             max_steps=self.max_steps,
             reward=self._last_reward,
             done=done,
-            metadata={"guidance": self._current_task.guidance},
+            metadata={
+                "guidance": self._current_task.guidance,
+                "business_impact": self._current_task.business_impact,
+                "success_criteria": self._current_task.success_criteria,
+            },
         )
 
     def reset(
