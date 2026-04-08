@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "email-triage-env"
+version = "0.1.0"
+description = "OpenEnv benchmark for real-world email triage."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+  "openenv-core[core]>=0.2.1",
+  "openai>=1.30.0",
+  "pydantic>=2.7.0",
+  "uvicorn>=0.30.0",
+]
+
+[project.scripts]
+server = "server.app:main"
+
+[tool.setuptools.packages.find]
+include = ["email_triage_env", "server"]
