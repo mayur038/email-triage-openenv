@@ -1,3 +1,5 @@
+"""Core environment logic for the staged Email Triage OpenEnv benchmark."""
+
 from __future__ import annotations
 
 import uuid
@@ -10,7 +12,7 @@ try:
     from email_triage_env.grader import grade_ticket, incremental_reward
     from email_triage_env.models import EmailTriageAction, EmailTriageObservation, EmailTriageState
     from email_triage_env.tasks import DEFAULT_TASK_ORDER, TASKS, EmailTask
-except ImportError:  # pragma: no cover
+except ImportError:
     from grader import grade_ticket, incremental_reward
     from models import EmailTriageAction, EmailTriageObservation, EmailTriageState
     from tasks import DEFAULT_TASK_ORDER, TASKS, EmailTask
@@ -31,6 +33,7 @@ class EmailTriageEnvironment(Environment[EmailTriageAction, EmailTriageObservati
         self._last_score = 0.0
         self._current_task: Optional[EmailTask] = None
         self._ticket = self._empty_ticket()
+        self._completed_checks: set[str] = set()
 
     def _empty_ticket(self) -> dict:
         return {
@@ -61,7 +64,36 @@ class EmailTriageEnvironment(Environment[EmailTriageAction, EmailTriageObservati
             missing.append("status")
         if not self._ticket["response"].strip():
             missing.append("response")
+        for check in self._current_task.required_checks:
+            if check not in self._completed_checks:
+                missing.append(f"workflow:{check}")
         return missing
+
+    def _workflow_stage(self) -> str:
+        if "classified" not in self._completed_checks:
+            return "triage"
+        if "responded" not in self._completed_checks:
+            return "draft_response"
+        if "investigated" in self._current_task.required_checks and "investigated" not in self._completed_checks:
+            return "risk_review"
+        return "final_review"
+
+    def _refresh_completed_checks(self) -> float:
+        before = set(self._completed_checks)
+        if self._ticket["category"] and self._ticket["priority"] and self._ticket["team"]:
+            self._completed_checks.add("classified")
+        response = self._ticket["response"].strip().lower()
+        if response and all(keyword in response for keyword in self._current_task.required_reply_keywords):
+            self._completed_checks.add("responded")
+        notes = self._ticket["notes"].strip().lower()
+        if "investigated" in self._current_task.required_checks and notes:
+            if all(keyword in notes for keyword in self._current_task.required_note_keywords):
+                self._completed_checks.add("investigated")
+        elif "investigated" not in self._current_task.required_checks and notes:
+            if any(keyword in notes for keyword in self._current_task.required_note_keywords):
+                self._completed_checks.add("investigated")
+        gained = len(self._completed_checks - before)
+        return 0.03 * gained
 
     def _feedback(self, breakdown: dict[str, float]) -> str:
         complete = [key for key, value in breakdown.items() if value >= 1.0]
@@ -91,6 +123,13 @@ class EmailTriageEnvironment(Environment[EmailTriageAction, EmailTriageObservati
             current_status=self._ticket["status"],
             current_response=self._ticket["response"],
             agent_notes=self._ticket["notes"],
+            customer_tier=self._current_task.customer_tier,
+            sla_deadline_minutes=self._current_task.sla_deadline_minutes,
+            related_ticket_summary=self._current_task.related_ticket_summary,
+            queue_backlog=self._current_task.queue_backlog,
+            risk_flags=list(self._current_task.risk_flags),
+            workflow_stage=self._workflow_stage(),
+            completed_checks=sorted(self._completed_checks),
             required_fields_remaining=self._required_fields_remaining(),
             score_breakdown=score_breakdown,
             last_action_feedback=feedback,
@@ -119,8 +158,9 @@ class EmailTriageEnvironment(Environment[EmailTriageAction, EmailTriageObservati
         self._last_score = 0.0
         self._current_task = self._select_task(task_id)
         self._ticket = self._empty_ticket()
+        self._completed_checks = set()
         return self._build_observation(
-            score_breakdown={"category": 0.0, "priority": 0.0, "team": 0.0, "status": 0.0, "response": 0.0},
+            score_breakdown={"category": 0.0, "priority": 0.0, "team": 0.0, "status": 0.0, "response": 0.0, "notes": 0.0, "workflow": 0.0},
             feedback="Review the email and begin triage.",
             done=False,
         )
@@ -150,14 +190,42 @@ class EmailTriageEnvironment(Environment[EmailTriageAction, EmailTriageObservati
             self._ticket["response"] = action.response
         if action.notes is not None:
             self._ticket["notes"] = action.notes
+        milestone_gain = self._refresh_completed_checks()
+        finalize_attempt_blocked = False
         if action.operation == "finalize":
-            self._finalized = True
-            if self._ticket["status"] != "resolved":
-                self._ticket["status"] = "resolved"
+            ready_to_finalize = (
+                all(check in self._completed_checks for check in self._current_task.required_checks)
+                and self._step_count >= self._current_task.min_steps
+            )
+            if ready_to_finalize:
+                self._finalized = True
+                if self._ticket["status"] != "resolved":
+                    self._ticket["status"] = "resolved"
+            else:
+                finalize_attempt_blocked = True
+                self._ticket["status"] = "in_progress"
 
-        score, breakdown = grade_ticket(self._ticket, self._current_task)
+        score, breakdown = grade_ticket(
+            self._ticket,
+            self._current_task,
+            self._completed_checks,
+            self._step_count,
+            self._finalized,
+        )
         repeated_action = previous_ticket == self._ticket
-        self._last_reward = incremental_reward(self._last_score, score, repeated_action, self._finalized)
+        delay_penalty = 0.0
+        if self._current_task.expected_priority in {"high", "urgent"} and "classified" not in self._completed_checks and self._step_count >= 2:
+            delay_penalty += 0.04
+        if "investigated" in self._current_task.required_checks and "investigated" not in self._completed_checks and self._step_count >= 2:
+            delay_penalty += 0.03
+        self._last_reward = incremental_reward(
+            self._last_score,
+            score,
+            repeated_action,
+            finalize_attempt_blocked,
+            milestone_gain,
+        )
+        self._last_reward = max(0.0, round(self._last_reward - delay_penalty, 4))
         self._last_score = score
 
         done = self._finalized or self._step_count >= self.max_steps
@@ -165,6 +233,8 @@ class EmailTriageEnvironment(Environment[EmailTriageAction, EmailTriageObservati
             self._ticket["status"] = "in_progress"
 
         feedback = self._feedback(breakdown)
+        if finalize_attempt_blocked:
+            feedback = f"{feedback} Finalize blocked until workflow checks are complete."
         return self._build_observation(score_breakdown=breakdown, feedback=feedback, done=done)
 
     @property
@@ -181,6 +251,8 @@ class EmailTriageEnvironment(Environment[EmailTriageAction, EmailTriageObservati
             current_priority=self._ticket["priority"],
             current_team=self._ticket["team"],
             current_status=self._ticket["status"],
+            workflow_stage=self._workflow_stage(),
+            completed_checks=sorted(self._completed_checks),
         )
 
     def get_metadata(self) -> EnvironmentMetadata:

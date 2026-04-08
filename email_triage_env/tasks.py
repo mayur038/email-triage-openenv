@@ -1,3 +1,5 @@
+"""Static benchmark task definitions used by the email triage environment."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -15,9 +17,17 @@ class EmailTask:
     expected_priority: str
     expected_team: str
     required_reply_keywords: tuple[str, ...]
+    required_note_keywords: tuple[str, ...]
     guidance: str
     business_impact: str
     success_criteria: str
+    customer_tier: str
+    sla_deadline_minutes: int
+    related_ticket_summary: str
+    min_steps: int
+    required_checks: tuple[str, ...]
+    queue_backlog: int
+    risk_flags: tuple[str, ...]
 
 
 TASKS: dict[str, EmailTask] = {
@@ -36,9 +46,17 @@ TASKS: dict[str, EmailTask] = {
         expected_priority="high",
         expected_team="it_support",
         required_reply_keywords=("reset", "verify", "access"),
+        required_note_keywords=("identity", "clinic"),
         guidance="Restore account access quickly while asking the user to verify identity.",
         business_impact="A clinician cannot access a patient portal before a time-sensitive shift.",
         success_criteria="Route to IT, mark as high priority, and explain identity verification plus access restoration.",
+        customer_tier="vip",
+        sla_deadline_minutes=60,
+        related_ticket_summary="Same user reset a device this morning and may need account re-verification.",
+        min_steps=2,
+        required_checks=("classified", "responded"),
+        queue_backlog=12,
+        risk_flags=("patient_portal_access", "time_sensitive_shift"),
     ),
     "billing_refund_medium": EmailTask(
         task_id="billing_refund_medium",
@@ -55,9 +73,17 @@ TASKS: dict[str, EmailTask] = {
         expected_priority="medium",
         expected_team="billing_ops",
         required_reply_keywords=("duplicate", "refund", "timeline"),
+        required_note_keywords=("duplicate", "charge"),
         guidance="Acknowledge the duplicate charge and route to billing with a refund timeline.",
         business_impact="A paying customer has been charged twice and expects a refund process update.",
         success_criteria="Route to billing, confirm the duplicate charge issue, and give a refund follow-up timeline.",
+        customer_tier="business",
+        sla_deadline_minutes=240,
+        related_ticket_summary="Customer has no prior refund history but has a multi-seat annual contract.",
+        min_steps=2,
+        required_checks=("classified", "responded"),
+        queue_backlog=18,
+        risk_flags=("duplicate_charge", "customer_trust"),
     ),
     "invoice_fraud_hard": EmailTask(
         task_id="invoice_fraud_hard",
@@ -75,9 +101,17 @@ TASKS: dict[str, EmailTask] = {
         expected_priority="urgent",
         expected_team="security_ops",
         required_reply_keywords=("do not pay", "verify", "security"),
+        required_note_keywords=("fraud", "domain", "bank"),
         guidance="Treat this as potential invoice fraud and escalate immediately.",
         business_impact="A company may send money to a fraudulent bank account if the case is mishandled.",
         success_criteria="Escalate to security, mark urgent, and clearly instruct the customer not to pay before verification.",
+        customer_tier="enterprise",
+        sla_deadline_minutes=15,
+        related_ticket_summary="Accounts payable reported a similar spoofed vendor attempt last quarter using a lookalike domain.",
+        min_steps=3,
+        required_checks=("classified", "responded", "investigated"),
+        queue_backlog=6,
+        risk_flags=("fraud_risk", "vendor_impersonation", "payment_block"),
     ),
 }
 

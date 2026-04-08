@@ -1,9 +1,11 @@
+"""Client wrapper for calling the deployed Email Triage OpenEnv service."""
+
 from __future__ import annotations
 
 try:
     from openenv.core.client_types import StepResult
     from openenv.core.env_client import EnvClient
-except ImportError:  # pragma: no cover
+except ImportError:
     from openenv.core.client_types import StepResult
     from openenv.core.env_client import EnvClient
 

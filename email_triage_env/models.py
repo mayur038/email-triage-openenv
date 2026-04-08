@@ -1,3 +1,5 @@
+"""Typed OpenEnv action, observation, and state models for email triage."""
+
 from __future__ import annotations
 
 from typing import Literal, Optional
@@ -10,7 +12,7 @@ Priority = Literal["low", "medium", "high", "urgent"]
 Team = Literal["it_support", "billing_ops", "security_ops"]
 TicketStatus = Literal["open", "in_progress", "resolved"]
 Difficulty = Literal["easy", "medium", "hard"]
-Operation = Literal["triage", "finalize"]
+Operation = Literal["triage", "draft", "finalize"]
 
 
 class EmailTriageAction(Action):
@@ -36,6 +38,13 @@ class EmailTriageObservation(Observation):
     current_status: TicketStatus = "open"
     current_response: str = ""
     agent_notes: str = ""
+    customer_tier: str = "standard"
+    sla_deadline_minutes: int = 240
+    related_ticket_summary: str = ""
+    queue_backlog: int = 0
+    risk_flags: list[str] = Field(default_factory=list)
+    workflow_stage: str = "triage"
+    completed_checks: list[str] = Field(default_factory=list)
     required_fields_remaining: list[str] = Field(default_factory=list)
     score_breakdown: dict[str, float] = Field(default_factory=dict)
     last_action_feedback: str = ""
@@ -52,3 +61,5 @@ class EmailTriageState(State):
     current_priority: Optional[Priority] = None
     current_team: Optional[Team] = None
     current_status: TicketStatus = "open"
+    workflow_stage: str = "triage"
+    completed_checks: list[str] = Field(default_factory=list)

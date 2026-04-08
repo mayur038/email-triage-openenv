@@ -1,3 +1,5 @@
+"""FastAPI entrypoint that exposes the Email Triage OpenEnv HTTP routes."""
+
 from __future__ import annotations
 
 from openenv.core.env_server.http_server import create_app
@@ -6,7 +8,7 @@ try:
     from email_triage_env.models import EmailTriageAction, EmailTriageObservation
     from email_triage_env.tasks import DEFAULT_TASK_ORDER
     from server.email_triage_environment import EmailTriageEnvironment
-except ImportError:  # pragma: no cover
+except ImportError:
     from models import EmailTriageAction, EmailTriageObservation
     from tasks import DEFAULT_TASK_ORDER
     from email_triage_environment import EmailTriageEnvironment

@@ -77,15 +77,31 @@ The environment tracks:
 
 - the original email
 - the current ticket state
+- workflow stage and completed checks
+- SLA pressure and queue backlog
+- risk flags and related ticket context
 - which fields are still missing
 - how much progress the agent has made
 - whether the ticket is ready to close
+
+## How It Works
+
+The environment follows a staged workflow:
+
+1. `reset()` starts a new email triage episode and returns the first observation.
+2. The agent reads the incoming email, related ticket summary, SLA pressure, and risk flags.
+3. The agent sends actions through `step()` to classify the issue, set priority, route the ticket, write notes, and draft a reply.
+4. The environment tracks workflow checks such as `classified`, `responded`, and `investigated`.
+5. The agent can only fully complete harder tasks after the required workflow checks are done.
+6. `state()` returns the current internal state, score progress, and workflow stage.
+
+This makes the benchmark more realistic than a one-step classifier because the agent must move through a support workflow and not just guess labels.
 
 ## Action Space
 
 The environment uses a typed `EmailTriageAction` model with these fields:
 
-- `operation`: `"triage"` or `"finalize"`
+- `operation`: `"triage"`, `"draft"`, or `"finalize"`
 - `category`: `account_access`, `billing`, or `security_incident`
 - `priority`: `low`, `medium`, `high`, or `urgent`
 - `team`: `it_support`, `billing_ops`, or `security_ops`
@@ -103,6 +119,12 @@ The environment returns a typed `EmailTriageObservation` containing:
 - `sender`
 - `subject`
 - `email_body`
+- `customer_tier`
+- `sla_deadline_minutes`
+- `queue_backlog`
+- `risk_flags`
+- `workflow_stage`
+- `completed_checks`
 - current category, priority, team, and status
 - current response and notes
 - `required_fields_remaining`
@@ -133,6 +155,12 @@ Business impact of the tasks:
 - medium: refund and customer trust risk
 - hard: potential financial fraud and security escalation
 
+Difficulty progression:
+
+- easy: classify and respond correctly in a short workflow
+- medium: handle billing context and communicate a refund path clearly
+- hard: complete a 3-step workflow with investigation notes before safe finalization
+
 ## Reward Design
 
 The reward is not just a final pass/fail score.  
@@ -143,13 +171,16 @@ The agent receives reward for:
 - choosing the correct category
 - assigning the correct priority
 - selecting the correct team
+- completing workflow checks in the right order
 - resolving the case properly
 - writing a reply that includes the important points
+- writing investigation notes for higher-risk cases
 
 The agent is penalized for:
 
 - repeating the same non-helpful action
 - finalizing too early with a weak solution
+- delaying classification or investigation on urgent cases
 
 Final task scores are always in the range `0.0` to `1.0`.
 
@@ -163,7 +194,9 @@ The grader checks:
 - priority correctness
 - routing correctness
 - resolution status
-- response quality using required keywords
+- response quality using required keywords and reply quality checks
+- investigation note quality
+- workflow completion and consistency
 
 This makes scoring reproducible and easy to validate.
 
@@ -195,6 +228,39 @@ python -m server.app
 
 The server runs on port `8000`.
 
+## How To Run The Project
+
+### 1. Install dependencies
+
+```bash
+pip install -r requirements.txt
+pip install -e .
+```
+
+### 2. Start the environment server
+
+```bash
+python -m server.app
+```
+
+After starting, the environment runs on:
+
+- `http://localhost:8000`
+
+### 3. Run the baseline script
+
+Set the required environment variables first:
+
+```bash
+set HF_TOKEN=your_token
+set API_BASE_URL=https://router.huggingface.co/v1
+set MODEL_NAME=Qwen/Qwen2.5-72B-Instruct
+set LOCAL_IMAGE_NAME=email-triage-env:latest
+python inference.py
+```
+
+The script will run all benchmark tasks and print structured logs using `[START]`, `[STEP]`, and `[END]`.
+
 ## Validation
 
 ```bash
@@ -203,6 +269,47 @@ uv lock
 docker build .
 ```
 
+## How To Verify The Project
+
+You can verify the project in 4 simple ways:
+
+### 1. Validate the OpenEnv spec
+
+```bash
+openenv validate
+```
+
+This checks the environment packaging and required deployment files.
+
+### 2. Check the local API
+
+After starting the server, test:
+
+```bash
+curl http://localhost:8000/
+curl http://localhost:8000/health
+```
+
+You can also test reset:
+
+```bash
+curl -X POST http://localhost:8000/reset -H "Content-Type: application/json" -d "{}"
+```
+
+### 3. Verify Docker build
+
+```bash
+docker build -t email-triage-env .
+```
+
+### 4. Verify the deployed Hugging Face Space
+
+```bash
+curl -X POST https://mayurgohil-email-triage-openenv.hf.space/reset -H "Content-Type: application/json" -d "{}"
+```
+
+If the Space is healthy, it should return HTTP `200`.
+
 ## Baseline Inference
 
 The root-level `inference.py` script:
@@ -210,6 +317,7 @@ The root-level `inference.py` script:
 - uses the OpenAI client
 - reads credentials from environment variables
 - runs all 3 tasks
+- follows the staged workflow instead of solving each task in one move
 - prints logs in the required `[START]`, `[STEP]`, and `[END]` format
 
 Required environment variables:
