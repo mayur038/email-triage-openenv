@@ -16,6 +16,8 @@ FIELD_WEIGHTS = {
     "workflow": 0.10,
     "consistency": 0.10,
 }
+MIN_FINAL_SCORE = 0.01
+MAX_FINAL_SCORE = 0.99
 
 
 def _reply_score(response: str, task: EmailTask) -> float:
@@ -72,7 +74,8 @@ def grade_ticket(ticket: dict[str, Any], task: EmailTask, completed_checks: set[
         "workflow": workflow_score,
         "consistency": _consistency_score(ticket, task, finalized),
     }
-    score = sum(breakdown[key] * FIELD_WEIGHTS[key] for key in FIELD_WEIGHTS)
+    raw_score = sum(breakdown[key] * FIELD_WEIGHTS[key] for key in FIELD_WEIGHTS)
+    score = min(max(raw_score, MIN_FINAL_SCORE), MAX_FINAL_SCORE)
     return round(score, 4), breakdown
 
 
