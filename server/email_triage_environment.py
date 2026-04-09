@@ -29,7 +29,7 @@ class EmailTriageEnvironment(Environment[EmailTriageAction, EmailTriageObservati
         self._episode_id: Optional[str] = None
         self._step_count = 0
         self._finalized = False
-        self._last_reward = 0.0
+        self._last_reward = 0.01
         self._last_score = 0.0
         self._current_task: Optional[EmailTask] = None
         self._ticket = self._empty_ticket()
@@ -154,7 +154,7 @@ class EmailTriageEnvironment(Environment[EmailTriageAction, EmailTriageObservati
         self._episode_id = episode_id or str(uuid.uuid4())
         self._step_count = 0
         self._finalized = False
-        self._last_reward = 0.0
+        self._last_reward = 0.01
         self._last_score = 0.0
         self._current_task = self._select_task(task_id)
         self._ticket = self._empty_ticket()
@@ -225,7 +225,7 @@ class EmailTriageEnvironment(Environment[EmailTriageAction, EmailTriageObservati
             finalize_attempt_blocked,
             milestone_gain,
         )
-        self._last_reward = max(0.0, round(self._last_reward - delay_penalty, 4))
+        self._last_reward = max(0.01, min(0.99, round(self._last_reward - delay_penalty, 4)))
         self._last_score = score
 
         done = self._finalized or self._step_count >= self.max_steps

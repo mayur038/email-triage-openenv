@@ -186,7 +186,7 @@ async def create_env() -> EmailTriageEnv:
 
 async def run_task(client: OpenAI, task_name: str) -> None:
     rewards: list[float] = []
-    score = 0.0
+    score = 0.01
     steps = 0
     success = False
     log_start(task=task_name, env=BENCHMARK, model=MODEL_NAME)
@@ -212,7 +212,7 @@ async def run_task(client: OpenAI, task_name: str) -> None:
         success = score >= 0.7
     except Exception:
         success = False
-        score = 0.0
+        score = 0.01
     finally:
         try:
             if env is not None:

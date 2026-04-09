@@ -18,6 +18,8 @@ FIELD_WEIGHTS = {
 }
 MIN_FINAL_SCORE = 0.01
 MAX_FINAL_SCORE = 0.99
+MIN_REWARD = 0.01
+MAX_REWARD = 0.99
 
 
 def _reply_score(response: str, task: EmailTask) -> float:
@@ -86,4 +88,4 @@ def incremental_reward(previous_score: float, current_score: float, repeated_act
         reward -= 0.05
     if finalize_attempt_blocked:
         reward -= 0.08
-    return max(0.0, min(1.0, round(reward, 4)))
+    return min(max(round(reward, 4), MIN_REWARD), MAX_REWARD)
