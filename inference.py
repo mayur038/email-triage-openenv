@@ -13,7 +13,8 @@ from email_triage_env.tasks import DEFAULT_TASK_ORDER
 API_BASE_URL = os.getenv("API_BASE_URL", "https://router.huggingface.co/v1")
 MODEL_NAME = os.getenv("MODEL_NAME", "Qwen/Qwen2.5-72B-Instruct")
 API_KEY = os.getenv("HF_TOKEN") or os.getenv("API_KEY")
-LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME", "email-triage-env:latest")
+LOCAL_IMAGE_NAME = os.getenv("LOCAL_IMAGE_NAME")
+ENV_BASE_URL = os.getenv("ENV_BASE_URL", "https://mayurgohil-email-triage-openenv.hf.space")
 BENCHMARK = "email_triage_env"
 MAX_STEPS = 6
 
@@ -171,15 +172,28 @@ def model_action(client: OpenAI, observation) -> dict:
         return fallback_action(observation)
 
 
+async def create_env() -> EmailTriageEnv:
+    if LOCAL_IMAGE_NAME:
+        try:
+            return await EmailTriageEnv.from_docker_image(LOCAL_IMAGE_NAME)
+        except Exception:
+            pass
+
+    env = EmailTriageEnv(base_url=ENV_BASE_URL)
+    await env.connect()
+    return env
+
+
 async def run_task(client: OpenAI, task_name: str) -> None:
     rewards: list[float] = []
     score = 0.0
     steps = 0
     success = False
-    env = await EmailTriageEnv.from_docker_image(LOCAL_IMAGE_NAME)
     log_start(task=task_name, env=BENCHMARK, model=MODEL_NAME)
+    env: Optional[EmailTriageEnv] = None
 
     try:
+        env = await create_env()
         result = await env.reset(task_id=task_name)
         for step in range(1, MAX_STEPS + 1):
             action_payload = model_action(client, result.observation)
@@ -196,9 +210,13 @@ async def run_task(client: OpenAI, task_name: str) -> None:
         state = await env.state()
         score = max(0.0, min(1.0, float(state.final_score)))
         success = score >= 0.7
+    except Exception:
+        success = False
+        score = 0.0
     finally:
         try:
-            await env.close()
+            if env is not None:
+                await env.close()
         except Exception:
             pass
         log_end(success=success, steps=steps, score=score, rewards=rewards)
